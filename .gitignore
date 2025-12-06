@@ -1,0 +1,9 @@
+.venv/
+venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+plots/
+estimator_vs_R.html
+estimator_vs_R.png
+.DS_Store
