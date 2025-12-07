@@ -9,6 +9,8 @@ S0 = 100                  # initial stock price
 K = 100                   # strike price
 T = 1.0                   # time to maturity
 C = np.inf                # upper barrier; use np.inf for brak bariery
+# dodatkowe bariery do wizualizacji trajektorii
+BARRIERS = (105.0, 115.0)
 
 # simulation parameters
 n_steps = 100             # number of time steps

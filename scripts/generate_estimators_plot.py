@@ -18,7 +18,8 @@ DEFAULT_R_VALUES: List[int] = [200, 500, 1_000, 5_000, 10_000]
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Wygeneruj wykres wartości estymatorów (crude i control variate) "
+            "Wygeneruj wykres wartości estymatorów "
+            "(crude, stratified, antithetic, control variate) "
             "w zależności od liczby ścieżek R i zapisz go jako .pkl."
         )
     )
@@ -66,6 +67,12 @@ def gather_estimates(
 
 def build_figure(R_values: List[int], vary_seed: bool) -> go.Figure:
     crude_estimates, crude_ses = gather_estimates("crude", R_values, vary_seed)
+    strat_estimates, strat_ses = gather_estimates(
+        "stratified", R_values, vary_seed
+    )
+    anti_estimates, anti_ses = gather_estimates(
+        "antithetic", R_values, vary_seed
+    )
     control_estimates, control_ses = gather_estimates(
         "control", R_values, vary_seed
     )
@@ -85,6 +92,40 @@ def build_figure(R_values: List[int], vary_seed: bool) -> go.Figure:
                 thickness=1.2,
                 width=3,
                 color="#444",
+            ),
+        )
+    )
+
+    fig.add_trace(
+        go.Scatter(
+            x=R_values,
+            y=strat_estimates,
+            mode="lines+markers",
+            name="Stratified estimator",
+            error_y=dict(
+                type="data",
+                array=strat_ses,
+                visible=True,
+                thickness=1.2,
+                width=3,
+                color="#2ca02c",
+            ),
+        )
+    )
+
+    fig.add_trace(
+        go.Scatter(
+            x=R_values,
+            y=anti_estimates,
+            mode="lines+markers",
+            name="Antithetic estimator",
+            error_y=dict(
+                type="data",
+                array=anti_ses,
+                visible=True,
+                thickness=1.2,
+                width=3,
+                color="#ff7f0e",
             ),
         )
     )

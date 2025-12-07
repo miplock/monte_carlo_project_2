@@ -3,7 +3,12 @@ from typing import Tuple
 
 import plotly.graph_objects as go
 
-from methods import control_variate_monte_carlo, crude_monte_carlo
+from methods import (
+    antithetic_monte_carlo,
+    control_variate_monte_carlo,
+    crude_monte_carlo,
+    stratified_monte_carlo,
+)
 from parameters import (
     C,
     K,
@@ -20,13 +25,14 @@ from parameters import (
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Wygeneruj wykres wartości estymatora (crude lub control variate) "
+            "Wygeneruj wykres wartości estymatora "
+            "(crude, stratified, antithetic, control variate) "
             "w zależności od liczby ścieżek R."
         )
     )
     parser.add_argument(
         "--method",
-        choices=["crude", "control"],
+        choices=["crude", "stratified", "antithetic", "control"],
         default="crude",
         help="Który estymator uruchomić.",
     )
@@ -70,8 +76,34 @@ def run_estimator(method: str, R_value: int, seed_offset: int) -> Tuple[float, f
             R=R_value,
             seed=run_seed,
         )
-    else:
+    elif method == "control":
         est, se, _ = control_variate_monte_carlo(
+            S0=S0,
+            mu_star=mu_star,
+            sigma=sigma,
+            r=r,
+            K=K,
+            C=C,
+            T=T,
+            n_steps=n_steps,
+            R=R_value,
+            seed=run_seed,
+        )
+    elif method == "antithetic":
+        est, se, _ = antithetic_monte_carlo(
+            S0=S0,
+            mu_star=mu_star,
+            sigma=sigma,
+            r=r,
+            K=K,
+            C=C,
+            T=T,
+            n_steps=n_steps,
+            R=R_value,
+            seed=run_seed,
+        )
+    else:
+        est, se, _ = stratified_monte_carlo(
             S0=S0,
             mu_star=mu_star,
             sigma=sigma,

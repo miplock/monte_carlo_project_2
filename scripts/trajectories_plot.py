@@ -23,36 +23,66 @@ MAIN_LINE_WIDTH = 1.6
 BACKGROUND_LINE_WIDTH = 1
 
 
-def _split_path_segments_indices(
-    path: np.ndarray, barrier: float
-) -> List[Tuple[bool, int, int]]:
+def _split_segments_with_crossings(
+    time_grid: np.ndarray, path: np.ndarray, barrier: float
+) -> List[Tuple[bool, np.ndarray, np.ndarray, np.ndarray]]:
     """
-    Split a trajectory into contiguous below/above segments using index ranges.
-    Ensures each segment has at least two points for visibility.
+    Split a path into below/above segments, inserting a crossing point when a segment
+    crosses the barrier so that colors switch exactly at the barrier level.
+    Returns a list of tuples (is_above, xs, ys, step_positions).
+    step_positions are 1-based indices aligned with time_grid so we can animate by step.
     """
-    above_mask = path >= barrier
-    segments: List[Tuple[bool, int, int]] = []
+    segments: List[Tuple[bool, np.ndarray, np.ndarray, np.ndarray]] = []
 
-    start_idx = 0
-    current_state = above_mask[0]
+    current_above = path[0] >= barrier
+    xs = [time_grid[0]]
+    ys = [path[0]]
+    steps = [1]  # 1-based to match animation steps
 
     for idx in range(1, len(path)):
-        if above_mask[idx] == current_state:
-            continue
+        x_prev, y_prev = time_grid[idx - 1], path[idx - 1]
+        x_curr, y_curr = time_grid[idx], path[idx]
+        next_above = y_curr >= barrier
 
-        end_idx = idx + 1
-        if end_idx - start_idx == 1 and start_idx > 0:
-            start_idx -= 1
-        segments.append((current_state, start_idx, end_idx))
+        crosses = (y_prev - barrier) * (y_curr - barrier) < 0
 
-        start_idx = idx
-        current_state = above_mask[idx]
+        if crosses:
+            # Linear interpolation to find crossing with the barrier.
+            t = (barrier - y_prev) / (y_curr - y_prev)
+            x_cross = x_prev + t * (x_curr - x_prev)
+            y_cross = barrier
 
-    end_idx = len(path)
-    if end_idx - start_idx == 1 and start_idx > 0:
-        start_idx -= 1
-    segments.append((current_state, start_idx, end_idx))
+            xs.append(x_cross)
+            ys.append(y_cross)
+            steps.append(idx + 1)  # crossing revealed when reaching current point
+            segments.append(
+                (current_above, np.array(xs), np.array(ys), np.array(steps))
+            )
 
+            # Start new segment from the crossing point.
+            xs = [x_cross, x_curr]
+            ys = [y_cross, y_curr]
+            steps = [idx + 1, idx + 1]
+            current_above = next_above
+        else:
+            if next_above == current_above:
+                xs.append(x_curr)
+                ys.append(y_curr)
+                steps.append(idx + 1)
+            else:
+                # No numeric crossing (touch at a point).
+                xs.append(x_curr)
+                ys.append(y_curr)
+                steps.append(idx + 1)
+                segments.append(
+                    (current_above, np.array(xs), np.array(ys), np.array(steps))
+                )
+                xs = [x_curr]
+                ys = [y_curr]
+                steps = [idx + 1]
+                current_above = next_above
+
+    segments.append((current_above, np.array(xs), np.array(ys), np.array(steps)))
     return segments
 
 
@@ -61,9 +91,9 @@ def _build_barrier_traces(
     S_paths_main: np.ndarray,
     barrier: float,
     R_paths_main: int,
-) -> Tuple[List[go.Scatter], List[Tuple[int, int] | None], List[Optional[int]]]:
+) -> Tuple[List[go.Scatter], List[Optional[np.ndarray]], List[Optional[int]]]:
     traces: List[go.Scatter] = []
-    trace_ranges: List[Tuple[int, int] | None] = []
+    trace_steps: List[Optional[np.ndarray]] = []
     trace_parents: List[Optional[int]] = []
     untouched_legend_shown = False
     below_legend_shown = False
@@ -85,14 +115,14 @@ def _build_barrier_traces(
                     showlegend=show_leg,
                 )
             )
-            trace_ranges.append((0, len(time_grid)))
+            trace_steps.append(np.arange(1, len(time_grid) + 1))
             trace_parents.append(i)
             untouched_legend_shown = untouched_legend_shown or show_leg
             continue
 
-        for is_above, start_idx, end_idx in _split_path_segments_indices(path, barrier):
-            x_seg = time_grid[start_idx:end_idx]
-            y_seg = path[start_idx:end_idx]
+        for is_above, x_seg, y_seg, step_pos in _split_segments_with_crossings(
+            time_grid, path, barrier
+        ):
             if is_above:
                 show_leg = not above_legend_shown
                 traces.append(
@@ -106,7 +136,7 @@ def _build_barrier_traces(
                         hoverinfo="skip",
                     )
                 )
-                trace_ranges.append((start_idx, end_idx))
+                trace_steps.append(step_pos)
                 trace_parents.append(i)
                 above_legend_shown = above_legend_shown or show_leg
             else:
@@ -122,7 +152,7 @@ def _build_barrier_traces(
                         hoverinfo="skip",
                     )
                 )
-                trace_ranges.append((start_idx, end_idx))
+                trace_steps.append(step_pos)
                 trace_parents.append(i)
                 below_legend_shown = below_legend_shown or show_leg
 
@@ -136,17 +166,17 @@ def _build_barrier_traces(
             hoverinfo="skip",
         )
     )
-    trace_ranges.append(None)
+    trace_steps.append(None)
     trace_parents.append(None)
 
-    return traces, trace_ranges, trace_parents
+    return traces, trace_steps, trace_parents
 
 
 def _build_background_traces(
     time_grid: np.ndarray, S_paths_bg: np.ndarray
-) -> Tuple[List[go.Scatter], List[Tuple[int, int] | None], List[Optional[int]]]:
+) -> Tuple[List[go.Scatter], List[Optional[np.ndarray]], List[Optional[int]]]:
     traces = []
-    ranges: List[Tuple[int, int] | None] = []
+    steps: List[Optional[np.ndarray]] = []
     parents: List[Optional[int]] = []
     for i in range(len(S_paths_bg)):
         traces.append(
@@ -159,9 +189,9 @@ def _build_background_traces(
                 hoverinfo="skip",
             )
         )
-        ranges.append(None)
+        steps.append(None)
         parents.append(None)
-    return traces, ranges, parents
+    return traces, steps, parents
 
 
 def _build_visibility(
@@ -204,22 +234,22 @@ def build_gbm_trajectories_figure(
     time_grid = np.linspace(T / n_steps, T, n_steps)
 
     traces: List[go.Scatter] = []
-    trace_ranges: List[Tuple[int, int] | None] = []
+    trace_steps: List[Optional[np.ndarray]] = []
     trace_parents: List[Optional[int]] = []
 
-    bg_traces, bg_ranges, bg_parents = _build_background_traces(time_grid, S_paths_bg)
+    bg_traces, bg_steps, bg_parents = _build_background_traces(time_grid, S_paths_bg)
     traces.extend(bg_traces)
-    trace_ranges.extend(bg_ranges)
+    trace_steps.extend(bg_steps)
     trace_parents.extend(bg_parents)
 
     barrier_trace_ranges: List[Tuple[int, int]] = []
     for barrier in BARRIERS:
         start = len(traces)
-        barrier_traces, barrier_ranges, barrier_parents = _build_barrier_traces(
+        barrier_traces, barrier_steps, barrier_parents = _build_barrier_traces(
             time_grid, S_paths_main, barrier, R_paths_main
         )
         traces.extend(barrier_traces)
-        trace_ranges.extend(barrier_ranges)
+        trace_steps.extend(barrier_steps)
         trace_parents.extend(barrier_parents)
         end = len(traces)
         barrier_trace_ranges.append((start, end))
@@ -267,17 +297,13 @@ def build_gbm_trajectories_figure(
     max_frames = max(len(s) for s in path_frame_steps) if path_frame_steps else 0
 
     def _slice_trace(trace_idx: int, step: int) -> Tuple[np.ndarray, np.ndarray]:
-        rng = trace_ranges[trace_idx]
+        step_positions = trace_steps[trace_idx]
         base_x, base_y = base_xy[trace_idx]
-        if rng is None:
+        if step_positions is None:
             return base_x, base_y
 
-        start, _ = rng
-        rel = step - start
-        if rel <= 0:
-            return np.array([]), np.array([])
-        rel = min(rel, len(base_x))
-        return base_x[:rel], base_y[:rel]
+        count = np.searchsorted(step_positions, step, side="right")
+        return base_x[:count], base_y[:count]
 
     frames = []
     for frame_i in range(max_frames):
