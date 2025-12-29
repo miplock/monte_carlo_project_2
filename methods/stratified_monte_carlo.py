@@ -55,9 +55,7 @@ def _stratified_normals(
     Z = np.empty((R, n_steps), dtype=np.float64)
     idx = 0
     for i, c in enumerate(counts, start=1):
-        Zi = _sample_ring_stratum(
-            i=i, count=int(c), n_steps=n_steps, m=m, rng=rng
-        )
+        Zi = _sample_ring_stratum(i=i, count=int(c), n_steps=n_steps, m=m, rng=rng)
         Z[idx: idx + c, :] = Zi
         idx += c
 
@@ -85,9 +83,8 @@ def stratified_monte_carlo(
 
     Parameters (same as before) + optional:
     - allocation: "proportional" (default) or "optimal"
-    - pilot_per_stratum: if allocation="optimal", how many pilot samples per
-                         stratum to estimate within-stratum std dev; default
-                         is auto.
+    - pilot_per_stratum: if allocation="optimal", how many pilot samples per stratum
+                         to estimate within-stratum std dev; default is auto.
 
     Returns
     -------
@@ -137,9 +134,7 @@ def stratified_monte_carlo(
 
     s = np.zeros(m, dtype=np.float64)  # within-stratum std dev estimates
     for i in range(1, m + 1):
-        Zp = _sample_ring_stratum(
-            i=i, count=pilot_per_stratum, n_steps=n_steps, m=m, rng=rng
-        )
+        Zp = _sample_ring_stratum(i=i, count=pilot_per_stratum, n_steps=n_steps, m=m, rng=rng)
         Yp = _payoffs_from_Z(Zp)
         # ddof=1 needs at least 2 samples
         s[i - 1] = float(Yp.std(ddof=1))
@@ -181,15 +176,12 @@ def stratified_monte_carlo(
                 counts = np.full(m, R // m, dtype=np.int64)
                 counts[: R % m] += 1
 
-    # 3) final stratified sampling with optimal counts; compute weighted
-    #    estimator + stratified variance
+    # 3) final stratified sampling with optimal counts; compute weighted estimator + stratified variance
     means = np.zeros(m, dtype=np.float64)
     vars_within = np.zeros(m, dtype=np.float64)
 
     for i, R_i in enumerate(counts, start=1):
-        Zi = _sample_ring_stratum(
-            i=i, count=int(R_i), n_steps=n_steps, m=m, rng=rng
-        )
+        Zi = _sample_ring_stratum(i=i, count=int(R_i), n_steps=n_steps, m=m, rng=rng)
         Yi = _payoffs_from_Z(Zi)
 
         means[i - 1] = float(Yi.mean())
