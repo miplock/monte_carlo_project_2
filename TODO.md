@@ -1,0 +1,7 @@
+- [ ] Opisać w `README` cel projektu, sposób uruchamiania oraz wymagania.
+- [ ] Zweryfikować spójność parametrów w estymatorach (np. przekazywanie `T` do `payoff_up_and_out_call` w `control_variate.py`).
+- [ ] Dodać krótki skrypt/sekcję do uruchomienia porównań estymatorów (crude/stratified/antithetic/control) z domyślnymi parametrami.
+- [ ] Ujednolicić interfejs funkcji estymatorów (seed opcjonalny, te same argumenty i kolejność).
+- [ ] Dodać testy jednostkowe dla generatora ścieżek GBM i funkcji wypłat (kształt, wartości brzegowe, powtarzalność z seed).
+- [ ] Opisać wnioski z PDF w pliku z wynikami/raportem (np. `results.md`) oraz dołączyć wykresy z `plots/`.
+- [ ] Dodać szybki benchmark czasu i wariancji estymatorów dla kilku wartości `R`.

@@ -19,6 +19,7 @@ from parameters import (
     r,
     seed,
     sigma,
+    m,
 )
 
 
@@ -112,6 +113,7 @@ def run_estimator(method: str, R_value: int, seed_offset: int) -> Tuple[float, f
             C=C,
             T=T,
             n_steps=n_steps,
+            m=m,
             R=R_value,
             seed=run_seed,
         )
