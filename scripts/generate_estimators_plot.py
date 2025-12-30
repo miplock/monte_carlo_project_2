@@ -10,6 +10,10 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+PLOTS_DIR = ROOT / "plots"
+if str(PLOTS_DIR) not in sys.path:
+    sys.path.insert(0, str(PLOTS_DIR))
+
 from plot_estimator_vs_R import run_estimator
 
 DEFAULT_R_VALUES: List[int] = [200, 500, 1_000, 5_000, 10_000]
