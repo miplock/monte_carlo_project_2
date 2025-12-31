@@ -15,7 +15,7 @@ BARRIERS = (105.0, 115.0)
 # simulation parameters
 n_steps = 12              # number of time steps
 R = 100000                # number of simulations
-m = 4                     # number of strata for stratified Monte Carlo
+m = 20                    # number of strata for stratified Monte Carlo
 
 # reproducibility
 seed = 12345

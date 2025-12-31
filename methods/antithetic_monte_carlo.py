@@ -10,25 +10,23 @@ def antithetic_monte_carlo(
     sigma: float,
     r: float,
     K: float,
-    C: float,
     T: float,
-    n_steps: int,
     R: int,
     seed: int | None,
 ):
     """
     Estimate the option price using antithetic variates on the Brownian
-    increments Z. Designed for n_steps = 1 (as in the task), but works for
-    general n_steps as well.
+    increments Z for a European option with n_steps = 1.
 
-    Parameters mirror the other estimators. R must be even so that each
-    draw Z has a paired -Z.
+    R must be even so that each draw Z has a paired -Z.
     """
     if R % 2 != 0:
         raise ValueError("R must be even for antithetic sampling.")
 
     rng = np.random.default_rng(seed)
     half = R // 2
+    n_steps = 1
+    C = np.inf
 
     # Generate Z and its negation to reduce variance.
     Z_half = rng.standard_normal((half, n_steps))

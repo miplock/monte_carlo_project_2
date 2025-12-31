@@ -65,7 +65,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--output",
-        default="plots/strata_stats.pkl",
+        default="data/strata_stats.pkl",
         help="Output .pkl path for saved statistics.",
     )
     return parser.parse_args()

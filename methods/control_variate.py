@@ -9,14 +9,12 @@ def control_variate_monte_carlo(
     sigma: float,
     r: float,
     K: float,
-    C: float,
     T: float,
-    n_steps: int,
     R: int,
     seed: int,
 ):
     """
-    Estimate the price of an up-and-out call option using a control variate
+    Estimate the price of a European call option using a control variate
     Monte Carlo estimator with the Brownian motion value B(T) as the control
     variate.
 
@@ -32,12 +30,8 @@ def control_variate_monte_carlo(
         Risk-free interest rate used for discounting.
     K : float
         Strike price of the option.
-    C : float
-        Upper barrier level for the up-and-out call.
     T : float
         Time to maturity (in years).
-    n_steps : int
-        Number of time steps per simulated path.
     R : int
         Number of Monte Carlo simulated paths.
     seed : int
@@ -55,7 +49,7 @@ def control_variate_monte_carlo(
     Notes
     -----
     Control variate:
-        Y = discounted payoff of the up-and-out call.
+        Y = discounted payoff of the European call.
         X = B(T), reconstructed from the final GBM price:
 
             S(T) = S0 * exp(mu_star * T + sigma * B(T))
@@ -67,13 +61,16 @@ def control_variate_monte_carlo(
             Y_cv  = Y - beta* * X
     """
 
+    n_steps = 1
+    C = np.inf
+
     # 1. Simulate GBM price paths (Numba-jitted)
     S_paths = simulate_gbm_paths(
         S0, mu_star, sigma, T, n_steps, R, seed
     )
 
-    # 2. Compute discounted payoffs of the up-and-out call (Numba-jitted)
-    discounted_payoffs = payoff_up_and_out_call(S_paths, K, r, C)
+    # 2. Compute discounted payoffs of the European call (Numba-jitted)
+    discounted_payoffs = payoff_up_and_out_call(S_paths, K, r, C, T)
     Y = discounted_payoffs
 
     # 3. Extract S(T) and reconstruct B(T) from the terminal GBM value
