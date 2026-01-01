@@ -6,6 +6,7 @@ from typing import Dict, List, Tuple
 
 import numpy as np
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
@@ -49,7 +50,7 @@ def parse_args() -> argparse.Namespace:
         "--barmode",
         choices=["overlay", "group"],
         default="group",
-        help="Histogram bar mode.",
+        help="Histogram bar mode (ignored for single-series plots).",
     )
     parser.add_argument(
         "--opacity",
@@ -120,6 +121,46 @@ def _load_errors(
     return errors_by_label, title
 
 
+def _kde_curve(values: np.ndarray, points: int = 200) -> Tuple[np.ndarray, np.ndarray]:
+    if values.size < 2:
+        return np.array([]), np.array([])
+    std = float(values.std(ddof=1))
+    if std == 0.0:
+        return np.array([]), np.array([])
+    bw = 1.06 * std * (values.size ** (-1 / 5))
+    if bw <= 0.0:
+        return np.array([]), np.array([])
+    grid = np.linspace(values.min() - 3 * std, values.max() + 3 * std, points)
+    diffs = (grid[:, None] - values[None, :]) / bw
+    density = np.exp(-0.5 * diffs * diffs).mean(axis=1) / (bw * np.sqrt(2 * np.pi))
+    return grid, density
+
+
+def _color_for_label(label: str, idx: int) -> str:
+    estimator_colors = {
+        "Crude": "#1f77b4",
+        "Stratified (proportional)": "#2ca02c",
+        "Stratified (optimal)": "#17becf",
+        "Antithetic": "#ff7f0e",
+        "Control variate": "#9467bd",
+    }
+    if label in estimator_colors:
+        return estimator_colors[label]
+    palette = ["#1f77b4", "#ff7f0e", "#2ca02c", "#17becf", "#9467bd", "#8c564b"]
+    return palette[idx % len(palette)]
+
+
+def _to_rgba(color: str, alpha: float) -> str:
+    if color.startswith("rgb("):
+        return color.replace("rgb(", "rgba(").replace(")", f", {alpha})")
+    if color.startswith("#") and len(color) == 7:
+        r = int(color[1:3], 16)
+        g = int(color[3:5], 16)
+        b = int(color[5:7], 16)
+        return f"rgba({r}, {g}, {b}, {alpha})"
+    return color
+
+
 def build_histogram(
     errors_by_label: Dict[str, List[float]],
     nbinsx: int,
@@ -127,26 +168,57 @@ def build_histogram(
     barmode: str,
     title: str,
 ) -> go.Figure:
-    fig = go.Figure()
-    for label, errors in errors_by_label.items():
+    labels = list(errors_by_label.keys())
+    cols = 2
+    rows = (len(labels) + cols - 1) // cols
+    fig = make_subplots(rows=rows, cols=cols, subplot_titles=labels)
+
+    for idx, label in enumerate(labels, start=1):
+        row = (idx - 1) // cols + 1
+        col = (idx - 1) % cols + 1
+        errors = errors_by_label[label]
+        color = _color_for_label(label, idx - 1)
+
+        grid, density = _kde_curve(np.array(errors, dtype=float))
+        if grid.size:
+            fig.add_trace(
+                go.Scatter(
+                    x=grid,
+                    y=density,
+                    mode="lines",
+                    name="KDE",
+                    line=dict(color=color, width=2),
+                    fill="tozeroy",
+                    fillcolor=_to_rgba(color, 0.15),
+                    showlegend=False,
+                ),
+                row=row,
+                col=col,
+            )
+
         fig.add_trace(
             go.Histogram(
                 x=errors,
                 name=label,
                 opacity=opacity,
                 nbinsx=nbinsx,
-            )
+                histnorm="probability density",
+                marker=dict(color=color, line=dict(color="#444", width=1)),
+            ),
+            row=row,
+            col=col,
         )
 
     fig.update_layout(
-        title=title,
-        xaxis_title="Error (estimate - reference)",
-        yaxis_title="Count",
+        title=dict(text=title, x=0.5),
         barmode=barmode,
         template="plotly_white",
-        legend=dict(yanchor="top", y=0.98, xanchor="left", x=0.02),
         margin=dict(l=60, r=30, t=60, b=50),
+        showlegend=False,
+        height=300 * rows,
     )
+    fig.update_xaxes(title_text="Error (estimate - reference)")
+    fig.update_yaxes(title_text="Density")
     return fig
 
 

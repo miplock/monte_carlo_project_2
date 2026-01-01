@@ -50,6 +50,26 @@ def _compute_stats(
     }
 
 
+def _format_scientific(value: float) -> str:
+    if value == 0:
+        return "0.000 &middot; 10<sup>0</sup>"
+    sign = "-" if value < 0 else ""
+    abs_val = abs(value)
+    exp = int(np.floor(np.log10(abs_val))) + 1
+    mantissa = abs_val / (10 ** exp)
+    return f"{sign}{mantissa:.3f} &middot; 10<sup>{exp}</sup>"
+
+
+def _format_default(value: float) -> str:
+    return f"{value:.3f}"
+
+
+def _format_coverage(value: float) -> str:
+    text = f"{value:.3f}"
+    text = text[1:] if text.startswith("0") else text
+    return text
+
+
 def main() -> None:
     args = parse_args()
     input_path = Path(args.input)
@@ -70,11 +90,50 @@ def main() -> None:
         T=params["T"],
     )
 
+    method_keys = [
+        "crude",
+        "stratified_proportional",
+        "stratified_optimal",
+        "antithetic",
+        "control",
+    ]
+    method_keys = [k for k in method_keys if k in estimates]
+
     stats: Dict[str, Dict[str, float]] = {}
-    for key in estimates:
+    for key in method_keys:
         est_arr = np.array(estimates[key], dtype=float)
         se_arr = np.array(ses[key], dtype=float)
         stats[key] = _compute_stats(est_arr, se_arr, true_value)
+
+    labels = {
+        "crude": "crude",
+        "stratified_proportional": "stratified (proportional)",
+        "stratified_optimal": "stratified (optimal)",
+        "antithetic": "antitetic",
+        "control": "control variate",
+    }
+    stat_order = [
+        ("MEAN", "mean"),
+        ("SD", "std"),
+        ("BIAS", "bias"),
+        ("MSE", "mse"),
+        ("CI-COVER-95%", "ci_coverage_95"),
+    ]
+
+    display_table = [["METHOD"] + [name for name, _ in stat_order]]
+    for key in method_keys:
+        stat_vals = stats[key]
+        method_name = labels.get(key, key)
+        row = [method_name]
+        for col_name, stat_key in stat_order:
+            value = stat_vals[stat_key]
+            if stat_key == "ci_coverage_95":
+                row.append(_format_coverage(value))
+            elif stat_key == "bias":
+                row.append(_format_scientific(value))
+            else:
+                row.append(_format_default(value))
+        display_table.append(row)
 
     output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -86,6 +145,7 @@ def main() -> None:
                 "true_value": true_value,
                 "parameters": params,
                 "stats": stats,
+                "display_table": display_table,
             },
             f,
         )
