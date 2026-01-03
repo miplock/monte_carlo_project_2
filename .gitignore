@@ -7,3 +7,4 @@ plots/
 estimator_vs_R.html
 estimator_vs_R.png
 .DS_Store
+notebooks/report.ipynb
