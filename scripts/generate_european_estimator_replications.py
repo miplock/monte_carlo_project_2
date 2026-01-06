@@ -179,6 +179,7 @@ def main() -> None:
         sys.stdout.flush()
 
     sys.stdout.write("\n")
+    total_elapsed = time.perf_counter() - start
 
     payload = {
         "parameters": {
@@ -206,6 +207,19 @@ def main() -> None:
 
         pickle.dump(payload, f)
     print(f"Replications saved to: {output_name}")
+
+    timing_output = output_name.with_name(f"{output_name.stem}_timing.pkl")
+    timing_payload = {
+        "output_data_file": str(output_name),
+        "M": args.M,
+        "elapsed_seconds": total_elapsed,
+        "avg_seconds_per_replication": total_elapsed / args.M if args.M else 0.0,
+    }
+    with timing_output.open("wb") as f:
+        import pickle
+
+        pickle.dump(timing_payload, f)
+    print(f"Timing saved to: {timing_output}")
 
 
 if __name__ == "__main__":
